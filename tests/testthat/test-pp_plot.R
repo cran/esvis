@@ -34,8 +34,27 @@ test_that("`pp_plot` produces expected output", {
 	expect_equal(pp_plot(mean ~ grade, seda, 
 					3)$xlab, 
 				"p(3)")
-	expect_equal(pp_plot(mean ~ grade, seda, legend = "base")$legend,
+	expect_equal(pp_plot(mean ~ grade, seda, leg = "base")$leg,
 		"base")
+
+	expect_equal(pp_plot(mean ~ grade, seda, scheme = "viridis")$scheme,
+		"viridis")
+	expect_equal(pp_plot(mean ~ grade, seda, scheme = "inferno")$scheme,
+		"inferno")
+	expect_equal(pp_plot(mean ~ grade, seda, scheme = "magma")$scheme,
+		"magma")
+	expect_equal(pp_plot(mean ~ grade, seda, scheme = "plasma")$scheme,
+		"plasma")
+
+	par(mfrow = c(1, 1))
+	expect_equal(pp_plot(math ~ frl, benchmarks, scheme = "viridis")$scheme,
+		"viridis")
+	expect_equal(pp_plot(math ~ frl, benchmarks, scheme = "inferno")$scheme,
+		"inferno")
+	expect_equal(pp_plot(math ~ frl, benchmarks, scheme = "magma")$scheme,
+		"magma")
+	expect_equal(pp_plot(math ~ frl, benchmarks, scheme = "plasma")$scheme,
+		"plasma")
 })
 
 test_that("Partial matching for `pp_plot` works", {
@@ -68,7 +87,7 @@ test_that("`pp_plot` throws warnings when it should", {
 	expect_warning(pp_plot(mean ~ subject, seda))
 
 	par(mfrow = c(4, 2))
-	expect_message(pp_plot(mean ~ subject, seda, legend = "side"))
+	expect_message(pp_plot(mean ~ subject, seda, leg = "side"))
 })
 
 test_that("dark theme works for `pp_plot`", {
@@ -80,6 +99,6 @@ test_that("dark theme works for `pp_plot`", {
 	
 	expect_equal(pp_plot(mean ~ grade, seda, 
 		theme = "dark", 
-		legend = "base")$legend,
+		leg = "base")$leg,
 		"base")
 })

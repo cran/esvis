@@ -6,7 +6,8 @@
 \usage{
 empty_plot(x, y, default_xlab = NULL, default_ylab = NULL,
   default_main = NULL, default_xlim = NULL, default_ylim = NULL,
-  default_xaxt = NULL, default_yaxt = NULL, default_bty = "n", ...)
+  default_xaxt = NULL, default_yaxt = NULL, default_bty = "n",
+  theme = "standard", las = c(1, 2), ...)
 }
 \arguments{
 \item{x}{The x variable to be plotted.}
@@ -43,6 +44,11 @@ the default \link[graphics]{plot} function.}
 
 \item{default_bty}{The default background type, which can be overridden by 
 the user. Defaults to \code{"n"}.}
+
+\item{theme}{The theme to be applied.}
+
+\item{las}{The axis option. Defaults to \code{c(1, 2)} which makes the 
+labels all horizontal.}
 
 \item{...}{Additional arguments supplied to \link[graphics]{plot} (e.g., 
 \code{xlim}, \code{ylim}, \code{cex}, etc.)}

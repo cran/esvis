@@ -13,14 +13,29 @@
 #' @param ref_group Optional character vector (of length 1) naming the
 #'   reference group to be plotted on the x-axis. Defaults to the highest
 #'   scoring group.
+#' @param cut Integer. Optional vector (or single number) of scores used to 
+#' annotate the plot. If supplied, line segments will extend from the 
+#' corresponding x and y axes and meet at the PP curve.
+#' @param cut_table Logical. Should a data.frame of the cuts and corresponding
+#' proportions be returned? Defaults to FALSE.
+#' @param grid Logical. Should gridlines behind the plot be displayed 
+#' according to the theme?
+#' @param scheme What color scheme should the lines follow? Defaults to 
+#' mimic the ggplot2 color scheme. Other options come from the 
+#' \href{https://CRAN.R-project.org/package=viridisLite}{viridisLite}
+#' package, and must be installed first. These are the same options available
+#' in the package: "viridis", "magma", "inferno", and "plasma". These color 
+#' schemes work well for color blindness and print well in black and white.
+#' Alternatively, colors can be supplied manually through a call to \code{col}
+#' (through \code{...}).
 #' @param annotate Logical. Defaults to \code{FALSE}. When \code{TRUE} and 
-#' \code{legend == "side"} the plot is rendered such that additional
+#' \code{leg == "side"} the plot is rendered such that additional
 #' annotations can be made on the plot using low level base plotting functions
 #' (e.g., \link[graphics]{arrows}). However, if set to \code{TRUE}, 
 #' \link[grDevices]{dev.off} must be called before a new plot is rendered 
 #' (i.e., close the current plotting window). Otherwise the plot will be
 #' attempted to be rendered in the region designated for the legend). Argument
-#' is ignored when \code{legend != "side"}.
+#' is ignored when \code{leg != "side"}.
 #' @param refline Logical. Defaults to \code{TRUE}. Should a diagonal
 #'    reference line, representing the point of equal probabilities, be
 #' 	  plotted?
@@ -30,14 +45,15 @@
 #' @param text Logical. Should the \code{link{auc}} and \code{link{v}}
 #'    statistics be displayed on the plot? Defaults to \code{TRUE} when there
 #' 	  are two groups. Cannot currently be displayed for more than two groups.
+#' @param text_x The x-axis location for the text.
+#' @param text_y The y-axis location for the text.
 #' @param text_size The size of the text to be displayed. Defaults to 2. 
 #' @param shade Logical. Should the area under the curve be shaded? Defaults
 #'    to \code{TRUE} if there are only two group. Currently it cannot be 
 #'    produced for more than two groups.
-#' @param shade_rgb The color of the shading via \link[grDevices]{rgb}. 
-#'    Defaults to \code{rgb(102, 178, 255, alpha = 30, max = 255)} which is a 
-#'    light blue color.
-#' @param legend The type of legend to be displayed, with possible values 
+#' @param shade_col The color of the shading. Defaults to the second color in
+#' the chosen color \code{scheme}.
+#' @param leg The type of legend to be displayed, with possible values 
 #' \code{"base"}, \code{"side"}, or \code{"none"}. Defaults to \code{"side"}, 
 #' when there are more than two groups and \code{"none"} when only comparing
 #' two groups. If the option \code{"side"} is used the plot is split into two
@@ -48,9 +64,10 @@
 #' When producing multi-panel plots, use \code{"none"} or \code{"base"}, the
 #' latter of which produces the legend with the base \link[graphics]{legend}
 #' function.
-#' @param plot Logical. Should the plot be produced? Defaults to \code{TRUE}. 
-#' Sometimes it is useful to only get the output from the plot, which is why
-#' this functionality exists (likely to be implemented in a panel plot). 
+#' @param n_1 Logical. Should the lines on the legend be displayed when there
+#' is only one curve? Defaults to \code{FALSE}, and is relevant when values to
+#' \code{cut} are provided. Forced to \code{TRUE} if \code{legend == "side"}
+#' and no values to \code{cut} are supplied.
 #' @param theme Visual properties of the plot. There are currently only two
 #' themes implemented - a standard plot and a dark theme. If \code{NULL} 
 #' (default), the theme will be produced with a standard white background. If
@@ -64,7 +81,6 @@
 #' The arguments supplied to the plot are silently returned for testing 
 #' purposes.
 #' @importFrom graphics par layout abline lines text polygon
-#' @importFrom grDevices rgb
 #' @export
 #' @examples
 #' # Prouduce default Probability-Probability plot with two groups
@@ -80,7 +96,7 @@
 #' # Change color of shading & line, line width, and title
 #' pp_plot(math ~ freelunch, 
 #' 		star, 
-#' 		shade_rgb = rgb(0.1, 0.8, 0.2, 0.5), 
+#' 		shade_col = grDevices::rgb(0.1, 0.8, 0.2, 0.5), 
 #' 		col = "purple", lwd = 5, 
 #' 		main = "Probability-Probability Plot")
 #' 
@@ -96,24 +112,38 @@
 #' 		ref_group = "3")
 #' 
 
-pp_plot <- function(formula, data, ref_group = NULL, annotate = FALSE, 
-	refline = TRUE, refline_col = "gray40", refline_lty = 2, refline_lwd = 2,
-	text = NULL, text_size = 2, shade = NULL, 
-	shade_rgb = rgb(102, 178, 255, alpha = 30, maxColorValue = 255), 
- 	legend = NULL, plot = TRUE, theme = NULL, ...) {
+pp_plot <- function(formula, data, ref_group = NULL, cut = NULL, 
+	cut_table = FALSE, grid = NULL, scheme = "ggplot2", annotate = FALSE,
+	refline = TRUE, refline_col = NULL, refline_lty = 2, refline_lwd = 2,
+	text = NULL, text_x = 0.8, text_y = 0.2, text_size = 1.5, shade = NULL,
+	shade_col = NULL, leg = NULL, n_1 = FALSE, theme = "standard", ...) {
 
-	ps <- probs(formula, data)
+	call <- as.list(match.call())
+	
+	calcs <- pp_calcs(formula, data, ref_group)
+	
+	if(!is.null(grid)) {
+		if(grid & !is.null(cut)) {
+			warning(paste("Grid suppressed when cut lines are also provided",
+				"(plot becomes overly busy otherwise)."))
+		}
+	}
 
-	if(ncol(ps) > 2 & !is.null(shade)) {
+	if(!is.null(cut)) grid <- FALSE
+	if(is.null(cut) & is.null(grid))  grid <- TRUE
+
+	if(!is.null(leg)) {
+		if(leg == "side") n_1 <- TRUE	
+	} 
+	if(ncol(calcs$ps) > 2 & !is.null(shade)) {
 		if(shade == TRUE) {
 			warning(
 				paste("The area under the curve can only be shaded with two",
 					"groups. Argument `shade = TRUE` ignored")
 				)	
-		}
-		
+		}	
 	}
-	if(ncol(ps) > 2 & !is.null(text)) {
+	if(ncol(calcs$ps) > 2 & !is.null(text)) {
 		if(text == TRUE) {
 			warning(
 				paste("Text annotations can only be produced automatically",
@@ -122,41 +152,29 @@ pp_plot <- function(formula, data, ref_group = NULL, annotate = FALSE,
 		}
 		
 	}
-	if(ncol(ps) == 2 & all(par()$mfrow == c(1, 2))) {
+	if(ncol(calcs$ps) == 2 & all(par()$mfrow == c(1, 2)) & is.null(cut)) {
 		warning(
 			paste("Two-panel plot detected without a legend. Call `dev.off()`",
 				"and then rerun the plot to avoid wasted space, if only",
 				"trying to plot a single curve. Ignore otherwise.")
 			)
 	}
-
-	if(is.null(ref_group)) ref_group <- colnames(ps)[1]
-	
-	if(ncol(ps) > 2) {
+	if(ncol(calcs$ps) > 2) {
 		shade <- FALSE
 		text <- FALSE
-		if(is.null(legend)) legend <- "side"
+		if(is.null(leg)) leg <- "side"
 	}
-	if(ncol(ps) == 2) {
-		if(is.null(legend)) legend <- "none"
+	if(ncol(calcs$ps) == 2) {
+		if(is.null(leg) & is.null(cut)) leg <- "none"
+		if(is.null(leg) & !is.null(cut)) leg <- "side"
 		if(is.null(text)) text <- TRUE
 		if(is.null(shade)) shade <- TRUE
 	}
 
-	if(!is.null(theme)) {
-		if(theme == "dark") {
-			op <- par(bg = "gray21", 
-					  col.axis = "white", 
-					  col.lab = "white",
-					  col.main = "white")
-		}
-	}
-	else {
-		op <- par(bg = "transparent")	
-	}
+	op <- themes(theme)$op	
 	on.exit(par(op))
 
-	if(any(par()$mfrow > 2) & any(par()$mfrow != c(1,2)) & legend == "side") {
+	if(any(par()$mfrow > 2) & any(par()$mfrow != c(1,2)) & leg == "side") {
 		message(
 			paste("Multi-panel settings detected with `legend == 'side'`.",
 				"Change legend option if trying to produce a multi-panel", 
@@ -164,131 +182,114 @@ pp_plot <- function(formula, data, ref_group = NULL, annotate = FALSE,
 			)
 	}
 
-	sq <- seq_len(ncol(ps))
-	ref_group_d <- ps[ ,sq[colnames(ps) == as.character(ref_group)] ]
-
-	if(plot == TRUE) {
-		if(legend == "side") {
-			layout(t(c(1, 2)), widths = c(0.9, 0.1))	
-		}
-		if(ncol(ps) == 2) {
-			p <- empty_plot(ref_group_d, ps[ ,2], 
-				paste0("p(",colnames(ps)[1],")"),
-				paste0("p(",colnames(ps)[2],")"),
-				paste(as.character(formula)[c(2, 1, 3)], collapse = " "),
-				...)
-		}
-		if(ncol(ps) > 2) {
-			p <- empty_plot(ref_group_d, ps[ ,2], 
-				paste0("p(", ref_group, ")"),
-				"p(Focal Group)",
-				paste(as.character(formula)[c(2, 1, 3)], collapse = " "),
-				...)
-		}
-		
-		if(!is.null(theme)) {
-			if(theme == "dark") {
-				if(is.null(p$xaxt))	axis(1, col = "white")
-				if(is.null(p$yaxt)) axis(2, col = "white")
-				if(refline_col == "gray") refline_col <- "white"
-				if(refline_lwd == 1) refline_lwd <- 2
-			}
-		}
-		if(refline == TRUE) {
-			abline(0, 1, 
-				col = refline_col, 
-				lty = refline_lty, 
-				lwd = refline_lwd)
-		}
+	if(leg == "side") {
+		max_char <- max(nchar(colnames(calcs$ps_subset)))
+		score_len <- max(nchar(paste0("Score: ", rownames(calcs$ps))))
+		if(max_char < score_len & !is.null(cut)) max_char <- score_len
+		wdth <- 0.9 - (max_char * 0.01)
+		layout(t(c(1, 2)), widths = c(wdth, 1 - wdth))	
 	}
-	ps_subset <- ps[ ,-sq[colnames(ps) == as.character(ref_group)], 
-					drop = FALSE]
-	
-	
+
+	if(ncol(calcs$ps) == 2) {
+		p <- empty_plot(calcs$ref_group_d, calcs$ps[ ,2], 
+			paste0("p(",colnames(calcs$ps)[1],")"),
+			paste0("p(",colnames(calcs$ps)[2],")"),
+			paste(as.character(formula)[c(2, 1, 3)], collapse = " "),
+			default_xaxt = "n",
+			default_yaxt = "n",
+			theme = theme,
+			...)
+	}
+	if(ncol(calcs$ps) > 2) {
+		p <- empty_plot(calcs$ref_group_d, calcs$ps[ ,2], 
+			paste0("p(", calcs$ref_group, ")"),
+			"p(Focal Group)",
+			paste(as.character(formula)[c(2, 1, 3)], collapse = " "),
+			default_xaxt = "n",
+			default_yaxt = "n",
+			theme = theme,
+			...)
+	}
 	if(is.null(p$lwd)) p$lwd <- 2
 	if(is.null(p$lty)) p$lty <- 1
-	if(is.null(p$col)) p$col <- col_hue(ncol(ps_subset))
+	if(is.null(p$col)) p$col <- col_scheme(scheme, ncol(calcs$ps_subset))
 
-	if((length(p$col) !=1) & (length(p$col) < ncol(ps_subset))) {
+	if((length(p$col) !=1) & (length(p$col) < ncol(calcs$ps_subset))) {
 		warning(
 			paste("Not enough colors supplied. Colors will be recycled",
 				"when drawing lines.")
 			)
 	}
-	if((length(p$lty) !=1) & (length(p$lty) < ncol(ps_subset))) {
+	if((length(p$lty) !=1) & 
+		(length(p$lty) < ncol(calcs$ps_subset))) {
 		warning(
 			paste("Not enough line types supplied. Line types will be",
 				"recycled when drawing lines.")
 			)
 	}
-
-	x_axs <- rep(ref_group_d, ncol(ps_subset))
-
-	if(plot == TRUE) {
-		Map(lines, 
-			x = split(x_axs, 
-					rep(seq_len(ncol(ps_subset)), each = nrow(ps_subset))), 
-			y = split(ps_subset, 
-					rep(seq_len(ncol(ps_subset)), each = nrow(ps_subset))),
-		    col = p$col, 
-			lwd = p$lwd,
-			lty = p$lty)
-
-		if(text == TRUE) {
-			if(!is.null(theme)) {
-				if(theme == "dark") {
-					text(0.8, 0.2, cex = text_size, col = "white",
-					paste0("AUC = ", 
-								round(auc(formula, data, ref_group, FALSE), 2),
-						   "\n", 
-						   "V = ", 
-						   		round(v(formula, data, ref_group, FALSE), 2)))
-				}	
-			}
-			else {
-				text(0.8, 0.2, cex = text_size, 
-					paste0("AUC = ", 
-								round(auc(formula, data, ref_group, FALSE), 2), 
-						   "\n", 
-						   "V = ", 
-						   		round(v(formula, data, ref_group, FALSE), 2)))
-			}
+	if(grid){
+		grid(col = adjustcolor(themes(theme)$line_col, alpha.f = 0.3))
+	}
+	if(shade) {
+		xlims <- seq(0, 1, length = nrow(calcs$ps))
+		if(is.null(shade_col))  {
+			shade_col <- col_scheme(scheme, 2, alpha = .3)[2]
 		}
+		polygon(c(xlims, rev(calcs$ps[ ,1])), 
+				c(rep(-1, length(xlims)), rev(calcs$ps[ ,2])),
+			col = shade_col,
+			border = NA)
+	}
+	if(text) {
+		pp_annotate(formula, data, calcs$ref_group, text_x, text_y, text_size,
+			theme)
+	}
+	if(refline) {
+		abline(0, 1, 
+			col = themes(theme)$line_col, 
+			lty = refline_lty, 
+			lwd = refline_lwd)
+	}
+	Map(lines, 
+		x = calcs$x_lines, 
+		y = calcs$y_lines,
+	    col = p$col, 
+		lwd = p$lwd,
+		lty = p$lty)
 
-		if(shade == TRUE) {
-			xlims <- seq(0, 1, length = nrow(ps))
-			polygon(c(xlims, rev(ps[ ,1])), 
-					c(rep(-1, length(xlims)), rev(ps[ ,2])),
-				col = shade_rgb,
-				border = NA)
-		}
-		if(legend == "side") {
-			create_legend(ncol(ps_subset), colnames(ps_subset), 
-				col = p$col, 
-				lwd = p$lwd, 
-				lty = p$lty)
-		}
-		if(legend == "base") {
-			if(is.null(theme)) {
-				create_base_legend(colnames(ps_subset), 
-					col = p$col, 
-					lwd = p$lwd, 
-					lty = p$lty)
-			}
-			if(!is.null(theme)) {
-				if(theme == "dark") {
-					create_base_legend(colnames(ps_subset), 
-						col = p$col, 
-						lwd = p$lwd, 
-						lty = p$lty,
-						text.col = "white")
-				}
-			}
-		}
+	if(!is.null(cut)) cut_cols <- create_cut_refs(cut, calcs, p, scheme)
+
+	if(leg == "side") {
+		create_legend(ncol(calcs$ps_subset),
+			colnames(calcs$ps_subset),
+			main_cols = p$col,
+			cut_cols = cut_cols,
+			lwd = 2,
+			left_mar = max_char * .35,
+			n_1 = n_1,
+			cut = cut)	
+	}
+	if(leg == "base") {
+		create_base_legend(colnames(calcs$ps_subset), 
+			col = p$col, 
+			lwd = p$lwd, 
+			lty = p$lty,
+			text.col = "white")
+	
 	}
 	if(annotate == TRUE) {
 		par(mfg = c(1, 1))
-		empty_plot(ref_group_d, ps[ ,2], "", "", xaxt = "n", yaxt = "n", ...)
+		empty_plot(calcs$ref_group_d, calcs$ps[ ,2], 
+			"", 
+			"", 
+			xaxt = "n", 
+			yaxt = "n", 
+			...)
 	} 
-invisible(c(as.list(match.call()), p, op))
+	if(cut_table) {
+		cuts <- as.data.frame.table(cuts, responseName = "proportion")
+		names(cuts)[1:2] <- c("cut", "group")
+	return(cuts)
+	}
+invisible(c(call, p, op))
 }

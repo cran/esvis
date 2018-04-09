@@ -1,7 +1,7 @@
 Package: esvis
 Type: Package
 Title: Visualization and Estimation of Effect Sizes
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: person("Daniel", "Anderson", email = "daniela@uoregon.edu", 
 	   role = c("aut", "cre"))
 Description: A variety of methods are provided to estimate and visualize
@@ -39,10 +39,10 @@ BugReports: https://github.com/DJAnderson07/esvis/issues
 License: MIT + file LICENSE
 LazyData: true
 RoxygenNote: 6.0.1
-Suggests: testthat
+Suggests: testthat, viridisLite
 NeedsCompilation: no
-Packaged: 2017-08-12 21:28:33 UTC; Daniel
+Packaged: 2018-04-09 17:28:03 UTC; Daniel
 Author: Daniel Anderson [aut, cre]
 Maintainer: Daniel Anderson <daniela@uoregon.edu>
 Repository: CRAN
-Date/Publication: 2017-08-13 09:51:14 UTC
+Date/Publication: 2018-04-09 18:02:00 UTC

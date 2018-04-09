@@ -4,8 +4,9 @@
 \alias{ecdf_plot}
 \title{Empirical Cumulative Distribution Plot}
 \usage{
-ecdf_plot(formula, data, ref_cut = NULL, hor_ref = FALSE, rect_ref = TRUE,
-  legend = "side", theme = NULL, annotate = FALSE, ...)
+ecdf_plot(formula, data, ref_cut = NULL, center = FALSE, max_line = FALSE,
+  ref_hor = FALSE, ref_rect = TRUE, scheme = "ggplot2", legend = "side",
+  annotate = FALSE, theme = "standard", ...)
 }
 \arguments{
 \item{formula}{A formula of the type \code{out ~ group} where \code{out} is
@@ -17,11 +18,26 @@ variable can include any arbitrary number of groups.}
 \item{ref_cut}{Optional numeric vector stating the location of reference 
 line(s) and/or rectangle(s).}
 
-\item{hor_ref}{Logical, defaults to \code{FALSE}. Should horizontal
+\item{center}{Logical. Should the functions be centered prior to plotting? Defaults to \code{FALSE}.}
+
+\item{max_line}{Logical. Should the maximum distance between any two curves
+be plotted? This distance is equivalent to the value tested by the 
+Kolmogorov-Smirnov test. Defaults to \code{FALSE}.}
+
+\item{ref_hor}{Logical, defaults to \code{FALSE}. Should horizontal
 reference lines be plotted at the location of \code{ref_cut}?}
 
-\item{rect_ref}{Logical, defaults to \code{TRUE}. Should semi-transparent 
+\item{ref_rect}{Logical, defaults to \code{TRUE}. Should semi-transparent 
 rectangle(s) be plotted at the locations of \code{ref_cut}?}
+
+\item{scheme}{What color scheme should the lines follow? Defaults to 
+mimic the ggplot2 color scheme. Other options come from the 
+\href{https://CRAN.R-project.org/package=viridisLite}{viridisLite}
+package, and must be installed first. These are the same options available
+in the package: "viridis", "magma", "inferno", and "plasma". These color 
+schemes work well for color blindness and print well in black and white.
+Alternatively, colors can be supplied manually through a call to \code{col}
+(through \code{...}).}
 
 \item{legend}{The type of legend to be displayed, with possible values 
 \code{"base"}, \code{"side"}, or \code{"none"}. Defaults to \code{"side"}, 
@@ -35,11 +51,6 @@ When producing multi-panel plots, use \code{"none"} or \code{"base"}, the
 latter of which produces the legend with the base \link[graphics]{legend}
 function.}
 
-\item{theme}{Visual properties of the plot. There are currently only two
-themes implemented - a standard plot and a dark theme. If \code{NULL} 
-(default), the theme will be produced with a standard white background. If
-\code{"dark"}, a dark gray background will be used with white text and axes.}
-
 \item{annotate}{Logical. Defaults to \code{FALSE}. When \code{TRUE} and 
 \code{legend == "side"} the plot is rendered such that additional
 annotations can be made on the plot using low level base plotting functions
@@ -48,6 +59,11 @@ annotations can be made on the plot using low level base plotting functions
 (i.e., close the current plotting window). Otherwise the plot will be
 attempted to be rendered in the region designated for the legend. Argument
 is ignored when \code{legend != "side"}.}
+
+\item{theme}{Visual properties of the plot. There are currently only two
+themes implemented - a standard plot and a dark theme. If \code{NULL} 
+(default), the theme will be produced with a standard white background. If
+\code{"dark"}, a dark gray background will be used with white text and axes.}
 
 \item{...}{Additional arguments passed to \link[graphics]{plot}. Note that
 it is best to use the full argument rather than partial matching, given the
@@ -79,7 +95,7 @@ ecdf_plot(mean ~ grade,
 ecdf_plot(mean ~ grade, 
 		seda,
 		ref_cut = c(225, 245, 265),
-		hor_ref = TRUE)
+		ref_hor = TRUE)
 
 # Apply dark theme
 ecdf_plot(mean ~ grade, 

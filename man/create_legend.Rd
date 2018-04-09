@@ -4,7 +4,8 @@
 \alias{create_legend}
 \title{Create a legend for a plot}
 \usage{
-create_legend(n, leg_labels, left_mar = 0, height = NULL, ...)
+create_legend(n, leg_labels, left_mar = 0, height = NULL,
+  main_cols = NULL, cut = NULL, cut_cols = NULL, n_1 = FALSE, ...)
 }
 \arguments{
 \item{n}{Number of lines to produce on the legend.}
@@ -16,6 +17,16 @@ legend more to the right.}
 
 \item{height}{The height of the legend. Counter-intuitively, larger numbers
 result in a smaller legend (more squished to the bottom).}
+
+\item{main_cols}{Primary colors (of the lines, rather than the cut scores)}
+
+\item{cut}{Cut scores (see \link{pp_plot}).}
+
+\item{cut_cols}{The color of the lines/points for the cut scores.}
+
+\item{n_1}{Should the lines on the legend be displayed when there
+is only one value? Defaults to \code{FALSE}, and is relevant when values to
+\code{cut} are provided.}
 
 \item{...}{Additional arguments passed to \link[graphics]{lines}.}
 }

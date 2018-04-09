@@ -4,10 +4,11 @@
 \alias{pp_plot}
 \title{Produces the paired probability plot for two groups}
 \usage{
-pp_plot(formula, data, ref_group = NULL, annotate = FALSE, refline = TRUE,
-  refline_col = "gray40", refline_lty = 2, refline_lwd = 2, text = NULL,
-  text_size = 2, shade = NULL, shade_rgb = rgb(102, 178, 255, alpha = 30,
-  maxColorValue = 255), legend = NULL, plot = TRUE, theme = NULL, ...)
+pp_plot(formula, data, ref_group = NULL, cut = NULL, cut_table = FALSE,
+  grid = NULL, scheme = "ggplot2", annotate = FALSE, refline = TRUE,
+  refline_col = NULL, refline_lty = 2, refline_lwd = 2, text = NULL,
+  text_x = 0.8, text_y = 0.2, text_size = 1.5, shade = NULL,
+  shade_col = NULL, leg = NULL, n_1 = FALSE, theme = "standard", ...)
 }
 \arguments{
 \item{formula}{A formula of the type \code{out ~ group} where \code{out} is
@@ -20,14 +21,33 @@ grouping variable must only include only two groups.}
 reference group to be plotted on the x-axis. Defaults to the highest
 scoring group.}
 
+\item{cut}{Integer. Optional vector (or single number) of scores used to 
+annotate the plot. If supplied, line segments will extend from the 
+corresponding x and y axes and meet at the PP curve.}
+
+\item{cut_table}{Logical. Should a data.frame of the cuts and corresponding
+proportions be returned? Defaults to FALSE.}
+
+\item{grid}{Logical. Should gridlines behind the plot be displayed 
+according to the theme?}
+
+\item{scheme}{What color scheme should the lines follow? Defaults to 
+mimic the ggplot2 color scheme. Other options come from the 
+\href{https://CRAN.R-project.org/package=viridisLite}{viridisLite}
+package, and must be installed first. These are the same options available
+in the package: "viridis", "magma", "inferno", and "plasma". These color 
+schemes work well for color blindness and print well in black and white.
+Alternatively, colors can be supplied manually through a call to \code{col}
+(through \code{...}).}
+
 \item{annotate}{Logical. Defaults to \code{FALSE}. When \code{TRUE} and 
-\code{legend == "side"} the plot is rendered such that additional
+\code{leg == "side"} the plot is rendered such that additional
 annotations can be made on the plot using low level base plotting functions
 (e.g., \link[graphics]{arrows}). However, if set to \code{TRUE}, 
 \link[grDevices]{dev.off} must be called before a new plot is rendered 
 (i.e., close the current plotting window). Otherwise the plot will be
 attempted to be rendered in the region designated for the legend). Argument
-is ignored when \code{legend != "side"}.}
+is ignored when \code{leg != "side"}.}
 
 \item{refline}{Logical. Defaults to \code{TRUE}. Should a diagonal
 reference line, representing the point of equal probabilities, be
@@ -43,17 +63,20 @@ reference line, representing the point of equal probabilities, be
 statistics be displayed on the plot? Defaults to \code{TRUE} when there
    are two groups. Cannot currently be displayed for more than two groups.}
 
+\item{text_x}{The x-axis location for the text.}
+
+\item{text_y}{The y-axis location for the text.}
+
 \item{text_size}{The size of the text to be displayed. Defaults to 2.}
 
 \item{shade}{Logical. Should the area under the curve be shaded? Defaults
 to \code{TRUE} if there are only two group. Currently it cannot be 
 produced for more than two groups.}
 
-\item{shade_rgb}{The color of the shading via \link[grDevices]{rgb}. 
-Defaults to \code{rgb(102, 178, 255, alpha = 30, max = 255)} which is a 
-light blue color.}
+\item{shade_col}{The color of the shading. Defaults to the second color in
+the chosen color \code{scheme}.}
 
-\item{legend}{The type of legend to be displayed, with possible values 
+\item{leg}{The type of legend to be displayed, with possible values 
 \code{"base"}, \code{"side"}, or \code{"none"}. Defaults to \code{"side"}, 
 when there are more than two groups and \code{"none"} when only comparing
 two groups. If the option \code{"side"} is used the plot is split into two
@@ -65,9 +88,10 @@ When producing multi-panel plots, use \code{"none"} or \code{"base"}, the
 latter of which produces the legend with the base \link[graphics]{legend}
 function.}
 
-\item{plot}{Logical. Should the plot be produced? Defaults to \code{TRUE}. 
-Sometimes it is useful to only get the output from the plot, which is why
-this functionality exists (likely to be implemented in a panel plot).}
+\item{n_1}{Logical. Should the lines on the legend be displayed when there
+is only one curve? Defaults to \code{FALSE}, and is relevant when values to
+\code{cut} are provided. Forced to \code{TRUE} if \code{legend == "side"}
+and no values to \code{cut} are supplied.}
 
 \item{theme}{Visual properties of the plot. There are currently only two
 themes implemented - a standard plot and a dark theme. If \code{NULL} 
@@ -105,7 +129,7 @@ pp_plot(math ~ freelunch,
 # Change color of shading & line, line width, and title
 pp_plot(math ~ freelunch, 
 		star, 
-		shade_rgb = rgb(0.1, 0.8, 0.2, 0.5), 
+		shade_col = grDevices::rgb(0.1, 0.8, 0.2, 0.5), 
 		col = "purple", lwd = 5, 
 		main = "Probability-Probability Plot")
 

@@ -15,10 +15,22 @@
 #' @param data The data frame that the data in the formula come from.
 #' @param ref_cut Optional numeric vector stating the location of reference 
 #' line(s) and/or rectangle(s).
-#' @param hor_ref Logical, defaults to \code{FALSE}. Should horizontal
+#' @param center Logical. Should the functions be centered prior to plotting? Defaults to \code{FALSE}.
+#' @param max_line Logical. Should the maximum distance between any two curves
+#' be plotted? This distance is equivalent to the value tested by the 
+#' Kolmogorov-Smirnov test. Defaults to \code{FALSE}.
+#' @param ref_hor Logical, defaults to \code{FALSE}. Should horizontal
 #'  reference lines be plotted at the location of \code{ref_cut}? 
-#' @param rect_ref Logical, defaults to \code{TRUE}. Should semi-transparent 
+#' @param ref_rect Logical, defaults to \code{TRUE}. Should semi-transparent 
 #' rectangle(s) be plotted at the locations of \code{ref_cut}? 
+#' @param scheme What color scheme should the lines follow? Defaults to 
+#' mimic the ggplot2 color scheme. Other options come from the 
+#' \href{https://CRAN.R-project.org/package=viridisLite}{viridisLite}
+#' package, and must be installed first. These are the same options available
+#' in the package: "viridis", "magma", "inferno", and "plasma". These color 
+#' schemes work well for color blindness and print well in black and white.
+#' Alternatively, colors can be supplied manually through a call to \code{col}
+#' (through \code{...}).
 #' @param legend The type of legend to be displayed, with possible values 
 #' \code{"base"}, \code{"side"}, or \code{"none"}. Defaults to \code{"side"}, 
 #' when there are more than two groups and \code{"none"} when only comparing
@@ -48,6 +60,8 @@
 #' (e.g., \code{m} for \code{main}, it is generally safest to supply the full
 #' argument).
 #' @importFrom graphics par layout lines segments rect 
+#' @importFrom utils installed.packages
+#' @importFrom grDevices adjustcolor
 #' @export
 #' @examples
 #' # Produce base empirical cummulative distribution plot
@@ -62,7 +76,7 @@
 #' ecdf_plot(mean ~ grade, 
 #' 		seda,
 #' 		ref_cut = c(225, 245, 265),
-#' 		hor_ref = TRUE)
+#' 		ref_hor = TRUE)
 #' 
 #' # Apply dark theme
 #' ecdf_plot(mean ~ grade, 
@@ -70,23 +84,18 @@
 #' 		ref_cut = c(225, 245, 265),
 #' 		theme = "dark")
 
-ecdf_plot <- function(formula, data, ref_cut = NULL, hor_ref = FALSE, 
-	rect_ref = TRUE, legend = "side", theme = NULL, annotate = FALSE, ...) {
+ecdf_plot <- function(formula, data, ref_cut = NULL, 
+	center = FALSE, max_line = FALSE, ref_hor = FALSE, ref_rect = TRUE, 
+	scheme = "ggplot2", legend = "side", annotate = FALSE, 
+	theme = "standard", ...) {
 	
 	splt <- parse_form(formula, data)
-	ecdfs <- cdfs(formula, data)
+	if(center) {
+		splt <- lapply(splt, function(x) as.numeric(scale(x, scale = FALSE)))
+	}
+	ecdfs <- cdfs(formula, data, center)
 
-	if(!is.null(theme)) {
-		if(theme == "dark") {
-			op <- par(bg = "gray21", 
-					  col.axis = "white", 
-					  col.lab = "white",
-					  col.main = "white")
-		}
-	}
-	else {
-		op <- par(bg = "transparent")	
-	}
+	op <- themes(theme)$op	
 	on.exit(par(op))
 
 	x_lim <- seq(min(vapply(splt, min, na.rm = TRUE, numeric(1))),
@@ -104,11 +113,12 @@ ecdf_plot <- function(formula, data, ref_cut = NULL, hor_ref = FALSE,
 					default_ylab = "Proportion",
 					default_main = paste(as.character(formula)[c(2, 1, 3)], 
 								collapse = " "),
+					theme = theme,
 					...)
 
 	if(is.null(p$lwd)) p$lwd <- 2
 	if(is.null(p$lty)) p$lty <- 1
-	if(is.null(p$col)) p$col <- col_hue(length(splt))
+	if(is.null(p$col)) p$col <- col_scheme(scheme, length(splt))
 
 	Map(lines, 
 		ecdfs,
@@ -118,9 +128,22 @@ ecdf_plot <- function(formula, data, ref_cut = NULL, hor_ref = FALSE,
 		col.01line = FALSE, 
 		verticals = TRUE, 
 		do.points = FALSE)
+	
+	if(max_line) {
+		differences <- probs(formula, data, center)
+		differences <- apply(differences, 1, function(x) max(abs(diff(x))))
+		x_int <- as.numeric(names(differences[which.max(differences)]))
+		ys <- vapply(ecdfs, function(x) x(x_int), numeric(1))
+		y_start <- min(ys)
+		y_end <- max(ys)
+		anno_col <- col_scheme(scheme, length(p$col) + 1)
+		anno_col <- anno_col[!anno_col %in% p$col]
+		anno_col <- anno_col[!anno_col %in% p$col][length(anno_col)]
+		segments(x_int, y_start, x_int, y_end, lwd = 4, col = "gray40")
+	}
 
 	if(!is.null(ref_cut)) {
-		if(hor_ref) {
+		if(ref_hor) {
 			x_ints <- split(rep(ref_cut, length(ref_cut)), 
 						rep(seq(1, length(ref_cut)), each = length(ref_cut)))
 
@@ -130,54 +153,29 @@ ecdf_plot <- function(formula, data, ref_cut = NULL, hor_ref = FALSE,
 				x1 = x_ints,
 				y0 = y_ints,
 				y1 = y_ints,
-				col = p$col,
-				lty = 3,
-				lwd = 1.5) 
+				col = rep(p$col, length(x_ints)),
+				lty = rep(3, length(x_ints)),
+				lwd = rep(1.5, length(x_ints))) 
 		}
-		if(rect_ref) {
-			if(is.null(theme)) {
+		if(ref_rect) {
 				rect(ref_cut, -1, 1000, 2, 
-					col = rgb(.2, .2, .2, .2), 
-					lwd = 0)	
-			}
-			if(!is.null(theme)) {
-				if(theme == "dark") {
-					rect(ref_cut, -1, 1000, 2, 
-						col = rgb(1, 1, 1, .2), 
-						lwd = 0)
-				}
+					col = adjustcolor(themes(theme)$line_col, alpha.f = 0.2), 
+					lwd = 0)
 			}
 		}
-	}
-	if(!is.null(theme)) {
-		if(theme == "dark") {
-			if(is.null(p$xaxt))	axis(1, col = "white")
-			if(is.null(p$yaxt)) axis(2, col = "white")	
-		}	
-	}
 	if(legend == "side") {
-		create_legend(length(splt), names(splt),
-			col = p$col,
-			lwd = p$lwd,
+		create_legend(length(splt), names(splt), 
+			main_cols = p$col, 
+			lwd = p$lwd, 
 			lty = p$lty,
 			left_mar = max_char * .35)
 	}
 	if(legend == "base") {
-		if(is.null(theme)) {
-			create_base_legend(names(splt), 
-				col = p$col, 
-				lwd = p$lwd, 
-				lty = p$lty)
-		}
-		if(!is.null(theme)) {
-			if(theme == "dark") {
-				create_base_legend(names(splt), 
-					col = p$col, 
-					lwd = p$lwd, 
-					lty = p$lty,
-					text.col = "white")
-			}
-		}
+		create_base_legend(names(splt), 
+			col = p$col, 
+			lwd = p$lwd, 
+			lty = p$lty, 
+			text.col = themes(theme)$line_col)
 	}
 	if(annotate == TRUE) {
 		par(mfg = c(1, 1))
