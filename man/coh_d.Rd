@@ -4,26 +4,35 @@
 \alias{coh_d}
 \title{Compute Cohen's \emph{d}}
 \usage{
-coh_d(formula, data, ref_group = NULL, tidy = TRUE)
+coh_d(data, formula, ref_group = NULL, se = TRUE)
 }
 \arguments{
+\item{data}{The data frame used for estimation - ideally structured in a tidy 
+format.}
+
 \item{formula}{A formula of the type \code{out ~ group} where \code{out} is
 the outcome variable and \code{group} is the grouping variable. Note this
-variable can include any arbitrary number of groups.}
+variable can include any arbitrary number of groups. Additional variables 
+can be included with \code{+} to produce separate estimates by the secondary 
+or tertiary variables of interest (e.g., \code{out ~ group + characteristic1 
++ characteristic2}).}
 
-\item{data}{The data frame that the data in the formula come from.}
+\item{ref_group}{Optional. A character vector or forumla listing the 
+reference group levels for each variable on the right hand side of the 
+formula, supplied in the same order as the formula. Note that if using the
+formula version, levels that are numbers, or include hyphens, spaces, etc., 
+should be wrapped in back ticks (e.g., 
+\code{ref_group = ~ Active + `Non-FRL`}, or \code{ref_group = ~`8`}). When 
+in doubt, it is safest to use the back ticks, as they will not interfere 
+with anything if they are not needed. See examples below for more details.}
 
-\item{ref_group}{Optional. If the name of the reference group is provided
-(must be character and match the grouping level exactly), only the
-estimates corresponding to the given reference group will be returned.}
-
-\item{tidy}{Logical. Should the data be returned in a tidy data frame? (see
-\href{http://journals.sagepub.com/doi/abs/10.3102/1076998611411918}{Wickham, 2014}). 
-If false, effect sizes returned as a vector.}
+\item{se}{Logical. Should the standard error of the effect size be 
+estimated and returned in the resulting data frame? Defaults to 
+\code{TRUE}.}
 }
 \value{
 By default the Cohen's \emph{d} for all possible pairings of
- the grouping factor are returned as a tidy data frame.
+ the grouping factor(s) are returned.
 }
 \description{
 This function calculates effect sizes in terms of Cohen's \emph{d}, also
@@ -37,16 +46,23 @@ the means and standard deviations.
 \examples{
 
 # Calculate Cohen's d for all pairwise comparisons
-coh_d(reading ~ condition, star) 
+coh_d(star, reading ~ condition) 
 
 # Report only relative to regular-sized classrooms
-coh_d(reading ~ condition, 
-		star, 
-		ref_group = "reg")
+coh_d(star,
+      reading ~ condition, 
+		   ref_group = "reg")
 
-# Return a vector instead of a data frame
-coh_d(reading ~ condition, 
-		star, 
-		ref_group = "reg", 
-		tidy = FALSE)
+# Report by ELL and FRL groups for each season, compare to non-ELL students
+# who were not eligible for free or reduced price lunch in the fall (using
+# the formula interface for reference group referencing).
+
+coh_d(benchmarks, 
+      math ~ ell + frl + season,
+      ref_group = ~`Non-ELL` + `Non-FRL` + Fall)
+
+# Same thing but with character vector supplied, rather than a formula
+coh_d(benchmarks, 
+      math ~ ell + frl + season,
+      ref_group = c("Non-ELL", "Non-FRL", "Fall"))
 }
